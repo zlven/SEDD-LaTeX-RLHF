@@ -1,0 +1,62 @@
+defaults:
+  - sft_s1k  # 继承SFT配置（模型架构、数据处理等）
+  - _self_
+
+# --- 基础配置 ---
+work_dir: "/root/autodl-tmp/exp_rl"  # 工作目录
+ngpus: 1  # 单GPU训练（PPO适合小规模）
+
+# --- RL专用配置（PPO适配） ---
+rl:
+  # PPO核心参数
+  ppo_clip: 0.2  # PPO剪切比率（epsilon），防止更新过大
+  kl_beta: 0.1   # KL散度正则化系数，防止偏离SFT参考模型
+  ppo_epochs: 3  # PPO内对同一批rollout数据的优化epoch数（提高样本质效）
+
+  # 训练循环参数
+  n_iters: 1000       # 总迭代步数（包含SFT和PPO混合）
+  reward_freq: 10      # PPO更新频率（每10步进行一次RL更新）
+  log_freq: 200         # 日志频率
+  save_freq: 200       # 保存频率
+  sampling_steps: 128  # Diffusion采样步数（SEDD生成轨迹时使用）
+  batch_size: 4       # PPO rollout batch size（生成轨迹的批量大小，适应小数据集）
+
+  # 奖励函数参数（传入LaTeXReward）
+  reward:
+    syntax_weight: 1.0
+    math_content_weight: 0.5
+    length_penalty: 0.1
+
+  # 旧参数（兼容，但PPO中不直接使用）
+  reward_weight: 0.0   # 在PPO中禁用（使用代理损失代替），设为0
+
+# --- 数据配置 ---
+data:
+  train: "s1K-1.1"  # 你的1000条数学题数据（用于SFT和PPO rollout）
+  valid: "s1K-1.1"  # 同上，用于验证
+  rl_data_path: "/root/autodl-tmp/RL_data/RLdata.jsonl"  # 可选：PPO特定数据路径（如果有偏好对或额外样本，否则忽略）
+
+# --- 训练参数调整（适应RL fine-tuning） ---
+training:
+  n_iters: ${rl.n_iters}  # 与RL迭代同步
+  snapshot_freq: ${rl.save_freq}
+  log_freq: ${rl.log_freq}
+  accum: 4  # 梯度累积（小batch时有用）
+  ema: 0.995  # EMA衰减率（保持模型稳定）
+  snapshot_sampling: true  # 启用采样监控
+
+# --- 优化器参数（RL时用小lr） ---
+optim:
+  lr: 1e-6  # 小学习率，防止过拟合小数据集
+  warmup: 500
+  beta1: 0.9
+  beta2: 0.999
+  eps: 1e-8
+  weight_decay: 0.01
+  grad_clip: 1.0  # 梯度裁剪，PPO中重要
+
+# --- Hydra 配置（实验管理） ---
+hydra:
+  launcher: null
+  run:
+    dir: /root/autodl-tmp/exp_rl/${now:%Y-%m-%d_%H-%M-%S}

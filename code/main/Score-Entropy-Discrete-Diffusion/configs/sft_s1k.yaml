@@ -1,0 +1,40 @@
+# configs/sft_s1k.yaml
+
+# 继承默认的 config.yaml 文件
+defaults:
+  - config
+  - _self_
+
+# --- 覆盖的配置项 ---
+
+# 1. 覆盖训练参数
+training:
+  batch_size: 16
+  n_iters: 5000
+  snapshot_freq: 500
+  log_freq: 50
+  eval_freq: 200 
+  snapshot_freq_for_preemption: 500
+
+# 2. 覆盖数据配置
+data:
+  train: "s1K-1.1"
+  valid: "s1K-1.1"
+  cache_dir: "/root/autodl-tmp/sft_dataset"
+
+# 3. 覆盖优化器配置
+optim:
+  warmup: 100
+
+# 4. 覆盖 eval 配置
+eval:
+  batch_size: 16
+  # 【核心修正】新增对 perplexity_batch_size 的覆盖
+  # 它的值必须小于或等于 training.batch_size (16)
+  perplexity_batch_size: 8  # 设置为8或16都可以
+
+# 5. 覆盖 Hydra 配置
+hydra:
+  launcher: null
+  run:
+    dir: /root/autodl-tmp/exp_sft/${now:%Y-%m-%d_%H-%M-%S}
